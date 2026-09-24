@@ -50,8 +50,15 @@ async function fetchModels(provider: ProviderId, baseUrl: string, apiKey: string
 
 async function reloadAgent(): Promise<void> {
   await writeOpenCodeConfig();
-  if (agent.isReady) await agent.restart();
-  else await agent.ensureStarted();
+}
+
+/** Restarts opencode without blocking the HTTP response (restarts can take a while). */
+function restartAgentInBackground(): void {
+  const task = agent.isReady ? agent.restart() : agent.ensureStarted();
+  void task.catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("[agent] reload failed:", err instanceof Error ? err.message : err);
+  });
 }
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
@@ -71,6 +78,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     let agentError: string | null = null;
     try {
       await reloadAgent();
+      restartAgentInBackground();
     } catch (err) {
       agentError = err instanceof Error ? err.message : String(err);
     }
@@ -81,6 +89,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     await deleteProvider(id);
     await reloadAgent().catch(() => undefined);
+    restartAgentInBackground();
     await audit({ userId: req.auth!.user.id, action: "provider.deleted", target: id, ip: req.ip });
     return reply.send({ ok: true });
   });
@@ -119,6 +128,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     }
     await setAgentSettings(parsed.data);
     await reloadAgent().catch(() => undefined);
+    restartAgentInBackground();
     await audit({ userId: req.auth!.user.id, action: "agent.settings_updated", ip: req.ip });
     return reply.send({ ok: true });
   });
@@ -147,7 +157,8 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/settings/status", async (_req, reply) => {
     return reply.send({
       opencodeOnline: await agent.health(),
-      knownModels: await agent.listKnownModels(),
+      startError: agent.startError,
+      logs: agent.logs,
     });
   });
 }

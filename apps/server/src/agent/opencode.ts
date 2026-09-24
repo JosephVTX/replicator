@@ -21,6 +21,8 @@ class AgentEngine {
   private child: ChildProcess | null = null;
   private starting: Promise<void> | null = null;
   private ready = false;
+  private recentLogs: string[] = [];
+  private lastStartError: string | null = null;
   private readonly client: OpenCodeClient;
   public readonly baseUrl: string;
 
@@ -37,9 +39,19 @@ class AgentEngine {
     return this.ready;
   }
 
+  get startError(): string | null {
+    return this.lastStartError;
+  }
+
+  get logs(): string[] {
+    return this.recentLogs.slice(-12);
+  }
+
   private log(line: string): void {
     const text = line.trim();
     if (!text) return;
+    this.recentLogs.push(text);
+    if (this.recentLogs.length > 40) this.recentLogs.shift();
     // eslint-disable-next-line no-console
     console.log(`[opencode] ${text.slice(0, 500)}`);
   }
@@ -77,10 +89,11 @@ class AgentEngine {
     });
     await this.waitForHealth();
     this.ready = true;
+    this.lastStartError = null;
     this.log("server is healthy");
   }
 
-  private async waitForHealth(timeoutMs = 30_000): Promise<void> {
+  private async waitForHealth(timeoutMs = 60_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
@@ -89,9 +102,11 @@ class AgentEngine {
       } catch {
         /* not up yet */
       }
+      if (!this.child || this.child.killed) break;
       await new Promise((r) => setTimeout(r, 400));
     }
-    throw new Error("opencode server did not become healthy in time");
+    this.lastStartError = `opencode did not become healthy. Recent output:\n${this.recentLogs.slice(-8).join("\n")}`;
+    throw new Error(this.lastStartError);
   }
 
   async health(): Promise<boolean> {

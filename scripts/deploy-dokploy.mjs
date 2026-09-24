@@ -147,6 +147,24 @@ async function main() {
     console.log(`· applied environment from ${ENV_FILE}`);
   }
 
+  // Persistent volume for the database, replicas, sessions and provider keys.
+  const full = await api(`/application.one?applicationId=${applicationId}`, { method: "GET" });
+  const hasDataMount = (full.mounts ?? []).some((m) => m.mountPath === "/data");
+  if (!hasDataMount) {
+    await api("/mounts.create", {
+      body: {
+        serviceType: "application",
+        serviceId: applicationId,
+        type: "volume",
+        mountPath: "/data",
+        volumeName: "replicator-data",
+      },
+    });
+    console.log("· created persistent volume replicator-data → /data");
+  } else {
+    console.log("· persistent volume already mounted at /data");
+  }
+
   await api("/domain.create", {
     body: {
       host: DOMAIN,
