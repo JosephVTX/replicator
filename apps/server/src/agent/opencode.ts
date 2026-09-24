@@ -147,6 +147,38 @@ class AgentEngine {
     return res.data ?? [];
   }
 
+  /** Pulls the most recent assistant error out of a session, if any. */
+  async lastError(sessionId: string): Promise<string | null> {
+    try {
+      const messages = (await this.getSessionMessages(sessionId)) as Array<{
+        info?: { role?: string; error?: unknown };
+        parts?: Array<{ type?: string; text?: string }>;
+      }>;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const info = messages[i]?.info;
+        if (info?.role === "assistant" && info.error) {
+          const err = info.error as { name?: string; data?: { message?: string } };
+          return err.data?.message ?? err.name ?? JSON.stringify(info.error);
+        }
+      }
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const part = messages[i]?.parts?.find((p) => p.type === "text" && p.text?.trim());
+        if (part?.text) return part.text.slice(0, 600);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    try {
+      await this.client.session.delete({ path: { id: sessionId } });
+    } catch {
+      /* best effort */
+    }
+  }
+
   /**
    * Sends a prompt and resolves when the assistant finishes the turn. `onEvent`
    * receives every opencode event so callers can surface live progress.
@@ -166,7 +198,12 @@ class AgentEngine {
         data?: { parts?: Array<{ type: string; text?: string }>; info?: { tokens?: unknown } };
         error?: unknown;
       };
-      if (res.error) throw new Error(`opencode prompt failed: ${JSON.stringify(res.error)}`);
+      if (res.error) {
+        const detail = await this.lastError(sessionId);
+        throw new Error(
+          `opencode prompt failed: ${detail ?? JSON.stringify(res.error)}`,
+        );
+      }
       const parts = res.data?.parts ?? [];
       const out = parts
         .filter((p) => p.type === "text" && typeof p.text === "string")

@@ -35,7 +35,9 @@ async function fetchModels(provider: ProviderId, baseUrl: string, apiKey: string
         ? m.pricing
           ? Number(m.pricing.prompt ?? "0") === 0 && Number(m.pricing.completion ?? "0") === 0
           : m.id.endsWith(":free")
-        : true;
+        : // opencode Zen / custom endpoints expose no pricing, so only names that
+          // are explicitly marked free are treated as free.
+          /free/i.test(m.id);
     return {
       provider,
       id: m.id,
@@ -119,6 +121,27 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     await reloadAgent().catch(() => undefined);
     await audit({ userId: req.auth!.user.id, action: "agent.settings_updated", ip: req.ip });
     return reply.send({ ok: true });
+  });
+
+  app.post("/api/settings/test-model", { preHandler: app.requireCsrf }, async (_req, reply) => {
+    const settings = await getAgentSettings();
+    try {
+      await writeOpenCodeConfig();
+      if (!agent.isReady) await agent.ensureStarted();
+      const sessionId = await agent.createSession("Model connectivity test");
+      try {
+        const result = await agent.prompt(sessionId, "Reply with exactly: OK");
+        return reply.send({ ok: true, model: settings.defaultModel, reply: result.text.slice(0, 300) });
+      } finally {
+        await agent.deleteSession(sessionId);
+      }
+    } catch (err) {
+      return reply.send({
+        ok: false,
+        model: settings.defaultModel,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 
   app.get("/api/settings/status", async (_req, reply) => {

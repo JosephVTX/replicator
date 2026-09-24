@@ -85,16 +85,19 @@ async function main() {
   } else {
     console.log(`· reusing project "${PROJECT_NAME}"`);
   }
+  const projectId = project.projectId ?? project.id;
 
-  const environments = await api(`/environment.byProjectId?projectId=${project.projectId}`, { method: "GET" });
+  const environments = await api(`/environment.byProjectId?projectId=${projectId}`, { method: "GET" });
   let environment = environments.find((e) => e.name === ENV_NAME);
   if (!environment) {
     console.log(`· creating environment "${ENV_NAME}"`);
-    environment = await api("/environment.create", { body: { projectId: project.projectId, name: ENV_NAME } });
+    await api("/environment.create", { body: { projectId, name: ENV_NAME } });
+    const refreshed = await api(`/environment.byProjectId?projectId=${projectId}`, { method: "GET" });
+    environment = refreshed.find((e) => e.name === ENV_NAME);
   }
 
-  const apps = await api(`/application.byProjectId?projectId=${project.projectId}`, { method: "GET" }).catch(() => []);
-  let app = (apps ?? []).find((a) => a.name === APP_NAME);
+  const apps = environment?.applications ?? [];
+  let app = apps.find((a) => a.name === APP_NAME);
   if (!app) {
     console.log(`· creating application "${APP_NAME}"`);
     app = await api("/application.create", {
@@ -127,6 +130,12 @@ async function main() {
       dockerfile: "Dockerfile",
       dockerContextPath: ".",
       dockerBuildStage: "",
+      herokuVersion: "24",
+      railpackVersion: "0.15.4",
+      publishDirectory: "",
+      isStaticSpa: false,
+      buildCommand: "",
+      buildArgs: "",
     },
   });
 

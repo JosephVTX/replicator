@@ -19,3 +19,9 @@ coverage
 
 # Vendored upstream skill (copied into packages/agent-skill/scripts)
 /vendor
+
+# Local test artifacts
+/.srv.log
+/.*.txt
+/.*.json
+/.*.log

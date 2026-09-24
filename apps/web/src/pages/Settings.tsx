@@ -60,8 +60,9 @@ function ProviderCard({
         },
       });
       setApiKey("");
-      setMsg(res.agentError ? `Saved. Agent warning: ${res.agentError}` : "Saved");
+      setMsg(res.agentError ? `Saved. Agent warning: ${res.agentError}` : "Saved ✓");
       onSaved();
+      await refreshModels();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -130,6 +131,7 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [testResult, setTestResult] = useState("");
   const [includeAll, setIncludeAll] = useState(false);
 
   const load = useCallback(async () => {
@@ -179,6 +181,27 @@ export default function SettingsPage() {
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const testModel = async () => {
+    setBusy(true);
+    setError("");
+    setTestResult("");
+    try {
+      const res = await api<{ ok: boolean; model: string; reply?: string; error?: string }>(
+        "/api/settings/test-model",
+        { method: "POST", body: {} },
+      );
+      setTestResult(
+        res.ok
+          ? `OK · ${res.model} → "${(res.reply ?? "").trim().slice(0, 80)}"`
+          : `FAILED · ${res.model} → ${res.error}`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Test failed");
     } finally {
       setBusy(false);
     }
@@ -259,12 +282,18 @@ export default function SettingsPage() {
             <Button onClick={saveAgent} disabled={busy}>
               {busy ? <Spinner /> : <Save className="size-4" />} Save agent settings
             </Button>
+            <Button variant="outline" onClick={testModel} disabled={busy}>
+              <Zap className="size-4" /> Test model
+            </Button>
             {saved ? (
               <span className="flex items-center gap-1 text-xs text-ok">
                 <Check className="size-3.5" /> Saved
               </span>
             ) : null}
           </div>
+          {testResult ? (
+            <p className={testResult.startsWith("OK") ? "text-xs text-ok" : "text-xs text-err"}>{testResult}</p>
+          ) : null}
         </Card>
       ) : null}
     </div>
