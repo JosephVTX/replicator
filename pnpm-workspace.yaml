@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  "@node-rs/argon2": true
+  "@tailwindcss/oxide": true
+  esbuild: true
+  playwright: true
+  playwright-core: true
+  "@libsql/client": true

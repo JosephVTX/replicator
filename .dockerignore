@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+build
+.data
+data
+vendor
+.git
+.github
+*.log
+.env
+.env.*
+!.env.example
+docker-compose.yml
+README.md

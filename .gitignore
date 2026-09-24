@@ -1,0 +1,21 @@
+node_modules
+dist
+build
+.env
+.env.local
+deploy.env
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+coverage
+.turbo
+.cache
+
+# Runtime data (replicas, builds, sqlite, opencode sessions) - never commit
+/data
+/apps/server/data
+/apps/server/.data
+
+# Vendored upstream skill (copied into packages/agent-skill/scripts)
+/vendor

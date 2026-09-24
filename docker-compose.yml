@@ -1,0 +1,36 @@
+# Dokploy compose stack for Replicator.
+#
+# Dokploy builds the image from the Dockerfile in this repository and injects the
+# Traefik labels for the domain you configure in the UI. Set the environment
+# variables in the Dokploy "Environment" tab (see .env.example).
+
+services:
+  replicator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: 0.0.0.0
+      DATA_DIR: /data
+      SKILL_WS: /opt/skill-ws
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-2}
+      JOB_TIMEOUT_MS: ${JOB_TIMEOUT_MS:-3600000}
+    volumes:
+      - replicator-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  replicator-data:

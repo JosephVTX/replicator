@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+/*
+ * Design tokens extracted from the original page go here.
+ * Keep them verbatim, including any @supports (color: lab(...)) fallbacks.
+ */
+:root {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+}
